@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energius - Pemantauan Energi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        #background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+        .auth-card {
+            position: relative;
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 1;
+            animation: elegantGlow 5s ease-in-out infinite;
+        }
+        @keyframes elegantGlow {
+            0% {
+                box-shadow: 0 0 15px rgba(59, 130, 246, 0), 0 0 25px rgba(59, 130, 246, 0), inset 0 0 8px rgba(255,255,255,0.4);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(22, 163, 74, 0.4), 0 0 40px rgba(59, 130, 246, 0.3), inset 0 0 12px rgba(255,255,255,0.6);
+            }
+            100% {
+                box-shadow: 0 0 15px rgba(59, 130, 246, 0), 0 0 25px rgba(59, 130, 246, 0), inset 0 0 8px rgba(255,255,255,0.4);
+            }
+        }
+
+        .card { background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); transition: all 0.3s ease-in-out; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .toggle-checkbox:checked + .toggle-bg { background-color: #0d9488; }
+        .toggle-checkbox:checked + .toggle-bg .dot { transform: translateX(100%); }
+        .nav-link.active { background-image: linear-gradient(to right, #3b82f6, #16a34a); color: white; font-weight: 600; }
+        .nav-link.active svg { color: white; }
+        .page-content { display: none; }
+        .page-content.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .modal-container > div {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .action-btn {
+            background-image: linear-gradient(to right, #3b82f6, #10b981);
+            transition: all 0.3s ease-in-out;
+            background-size: 200% auto;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(26, 151, 136, 0.4);
+            background-position: right center;
+        }
+        .auth-section {
+             display: none;
+        }
+        .auth-section.active {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+    <canvas id="background-animation"></canvas>
+
+    <div id="auth-container" class="relative min-h-screen">
+        <!-- Tombol Aksi di Pojok Kanan Atas -->
+        <div class="absolute top-6 right-6 z-10 flex items-center space-x-4">
+            <button id="hubungi-kami-btn" class="action-btn px-4 py-2 text-white font-semibold rounded-lg shadow-md">Hubungi Kami</button>
+            <button id="panduan-login-btn" class="action-btn px-4 py-2 text-white font-semibold rounded-lg shadow-md">Panduan Login</button>
+        </div>
+
+        <!-- Halaman Login -->
+        <section id="login-page" class="auth-section active items-center justify-center min-h-screen p-4 pt-20 md:pt-4">
+            <div class="w-full max-w-md mx-auto">
+                <div class="auth-card p-8 rounded-2xl shadow-xl">
+                    <div class="text-center mb-8">
+                        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500">Energius</h1>
+                        <p class="text-gray-500 mt-1">Selamat Datang Kembali</p>
+                    </div>
+                    <form id="login-form">
+                        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4" role="alert">
+                            <strong class="font-bold">Gagal!</strong>
+                            <span class="block sm:inline">Username atau password salah.</span>
+                        </div>
+                        <div class="mb-4">
+                            <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input type="text" id="username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="mb-2">
+                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input type="password" id="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="text-right mb-4">
+                            <a href="#" id="forgot-password-link" class="text-sm font-medium text-blue-600 hover:text-blue-500 transition-colors">Lupa Password?</a>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity duration-300">Login</button>
+                        <p class="text-center text-sm text-gray-500 mt-6">
+                            Belum punya akun? <a href="#" id="signup-link" class="font-semibold text-teal-600 hover:text-teal-500 transition-colors">Daftar di sini</a>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Halaman Daftar Akun -->
+        <section id="signup-page" class="auth-section items-center justify-center min-h-screen p-4 pt-20 md:pt-4">
+            <div class="w-full max-w-md mx-auto">
+                <div class="auth-card p-8 rounded-2xl shadow-xl">
+                    <div class="text-center mb-8">
+                        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500">Buat Akun Baru</h1>
+                        <p class="text-gray-500 mt-1">Gabung bersama Energius</p>
+                    </div>
+                    <form>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">No. Telepon</label>
+                            <input type="tel" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input type="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity duration-300">Daftar</button>
+                        <p class="text-center text-sm text-gray-500 mt-6">
+                            Sudah punya akun? <a href="#" class="font-semibold text-teal-600 hover:text-teal-500 transition-colors back-to-login">Kembali ke Login</a>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Halaman Lupa Password -->
+        <section id="forgot-password-page" class="auth-section items-center justify-center min-h-screen p-4 pt-20 md:pt-4">
+             <div class="w-full max-w-md mx-auto">
+                <div class="auth-card p-8 rounded-2xl shadow-xl">
+                    <div class="text-center mb-8">
+                        <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500">Lupa Password</h1>
+                        <p class="text-gray-500 mt-1">Kami akan bantu atur ulang password Anda</p>
+                    </div>
+                    <form>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500 transition" required>
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white font-bold py-3 px-4 rounded-lg hover:opacity-90 transition-opacity duration-300">Kirim Instruksi</button>
+                        <p class="text-center text-sm text-gray-500 mt-6">
+                            Ingat password Anda? <a href="#" class="font-semibold text-teal-600 hover:text-teal-500 transition-colors back-to-login">Kembali ke Login</a>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <!-- Halaman Dasbor Utama (Hidden by default, populated by JS) -->
+    <section id="dashboard-page" class="hidden"></section>
+
+    <!-- Modals -->
+    <div id="panduan-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out modal-container">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full relative transform scale-95 opacity-0" id="panduan-modal-content">
+            <button id="close-panduan-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Panduan Login</h2>
+            <ol class="list-decimal list-inside space-y-4 text-gray-600">
+                <li><strong>Masukkan Username:</strong><br>Gunakan username yang telah terdaftar pada sistem Energius.</li>
+                <li><strong>Masukkan Password:</strong><br>Ketikkan password yang sesuai dengan username Anda.</li>
+                <li><strong>Klik Tombol Login:</strong><br>Setelah data terisi, klik tombol "Login" untuk masuk ke dasbor utama.</li>
+                <li><strong>Lupa Password?</strong><br>Jika Anda mengalami kendala, silakan hubungi kami.</li>
+            </ol>
+        </div>
+    </div>
+    <div id="hubungi-kami-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out modal-container">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full relative transform scale-95 opacity-0" id="hubungi-kami-modal-content">
+            <button id="close-hubungi-kami-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Hubungi Kami</h2>
+            <div class="flex flex-col space-y-4">
+                <a href="https://www.instagram.com/energius.pkm?igsh=MTVuaHQ2dmwwdWwxOA==" target="_blank" class="flex items-center p-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mr-4 text-pink-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44 1.441-.645 1.441-1.44-.645-1.44-1.441-1.44z"/></svg>
+                    <span class="font-semibold text-gray-700">@energius.pkm</span>
+                </a>
+                <a href="mailto:energijenius@gmail.com" class="flex items-center p-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mr-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                    <span class="font-semibold text-gray-700">energijenius@gmail.com</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- AUTH & PAGE SELECTORS ---
+            const authContainer = document.getElementById('auth-container');
+            const authSections = document.querySelectorAll('.auth-section');
+            const dashboardPage = document.getElementById('dashboard-page');
+            const loginForm = document.getElementById('login-form');
+            const errorMessage = document.getElementById('error-message');
+            const signupLink = document.getElementById('signup-link');
+            const forgotPasswordLink = document.getElementById('forgot-password-link');
+            const backToLoginLinks = document.querySelectorAll('.back-to-login');
+            
+            // --- MODAL SELECTORS ---
+            const panduanLoginBtn = document.getElementById('panduan-login-btn');
+            const hubungiKamiBtn = document.getElementById('hubungi-kami-btn');
+            const panduanModal = document.getElementById('panduan-modal');
+            const hubungiKamiModal = document.getElementById('hubungi-kami-modal');
+            const panduanModalContent = document.getElementById('panduan-modal-content');
+            const hubungiKamiModalContent = document.getElementById('hubungi-kami-modal-content');
+            const closePanduanBtn = document.getElementById('close-panduan-btn');
+            const closeHubungiKamiBtn = document.getElementById('close-hubungi-kami-btn');
+
+            // --- DASHBOARD VARIABLES (DECLARED GLOBALLY WITHIN SCOPE) ---
+            let charts = {};
+            let chartsInitialized = { dasbor: false, analitik: false };
+            const monthlyData = [ { month: "Jan 2025", kwh: 350.5, biaya: 506300, pf: 0.92, pzem: [{lantai: 1, arus: 1.8, tegangan: 221, daya: 390}] }, { month: "Feb 2025", kwh: 330.2, biaya: 476900, pf: 0.93, pzem: [{lantai: 1, arus: 1.7, tegangan: 219, daya: 370}] }, { month: "Mar 2025", kwh: 380.5, biaya: 549700, pf: 0.95, pzem: [{lantai: 1, arus: 1.9, tegangan: 220, daya: 410}] }, { month: "Apr 2025", kwh: 395.2, biaya: 570900, pf: 0.96, pzem: [{lantai: 1, arus: 2.0, tegangan: 222, daya: 440}] }, { month: "Mei 2025", kwh: 410.8, biaya: 593500, pf: 0.97, pzem: [{lantai: 1, arus: 2.1, tegangan: 218, daya: 450}] }, { month: "Jun 2025", kwh: 402.1, biaya: 580900, pf: 0.98, pzem: [{lantai: 1, arus: 2.0, tegangan: 220, daya: 440}] }, ];
+            let currentMonthIndex = 5; let currentPfMonthIndex = 5;
+            const weeklyData = Array.from({ length: 6 }, () => Array.from({ length: 4 }, () => Array.from({ length: 7 }, () => Math.floor(Math.random() * 8) + 7)));
+            let currentGraphMonthIndex = 5; let currentGraphWeekIndex = 0;
+
+            // --- BACKEND INTEGRATION ---
+            let ws = null;
+            let reconnectInterval = null;
+            let lastRealtimeData = null;
+            let shouldReconnect = true;
+
+            const relayToggleIds = {
+                relay1: 'toggle-relay1',
+                relay2: 'toggle-relay2',
+                relay3: 'toggle-relay3',
+                relay4: 'toggle-relay4'
+            };
+
+            function getWebSocketUrl() {
+                const override = new URLSearchParams(location.search).get('ws');
+                if (override) return override;
+                const host = location.hostname || 'localhost';
+                const isSecure = location.protocol === 'https:';
+                const protocol = isSecure ? 'wss' : 'ws';
+                return `${protocol}://${host}:8080`;
+            }
+
+            function setConnectionStatus(isConnected) {
+                const wrapper = document.getElementById('connection-status');
+                if (!wrapper) return;
+                const pulseColor = isConnected ? 'bg-green-400' : 'bg-red-400';
+                const dotColor = isConnected ? 'bg-green-500' : 'bg-red-500';
+                const textColor = isConnected ? 'text-green-600' : 'text-red-600';
+                const label = isConnected ? 'Terhubung' : 'Terputus';
+                wrapper.innerHTML = `
+                    <span class="relative flex h-3 w-3">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${pulseColor} opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-3 w-3 ${dotColor}"></span>
+                    </span>
+                    <span class="font-semibold ${textColor}">${label}</span>
+                `;
+            }
+
+            function initWebSocket() {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    return;
+                }
+
+                const url = getWebSocketUrl();
+                try {
+                    ws = new WebSocket(url);
+                } catch (err) {
+                    console.error('Kesalahan membuat WebSocket:', err);
+                    setConnectionStatus(false);
+                    scheduleReconnect();
+                    return;
+                }
+
+                ws.onopen = () => {
+                    console.log('Terhubung ke WebSocket server.');
+                    setConnectionStatus(true);
+                    if (reconnectInterval) {
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload?.type === 'relay_sync') {
+                            applyRelaySync(payload.relay, payload.state);
+                            return;
+                        }
+                        updateDashboardFromWS(payload);
+                        updateChartsFromWS(payload);
+                    } catch (err) {
+                        console.error('Kesalahan parsing pesan WebSocket:', err);
+                    }
+                };
+
+                ws.onclose = (event) => {
+                    console.log('Koneksi WebSocket ditutup:', event.code, event.reason);
+                    setConnectionStatus(false);
+                    ws = null;
+                    scheduleReconnect();
+                };
+
+                ws.onerror = (error) => {
+                    console.error('Kesalahan WebSocket:', error);
+                };
+            }
+
+            function scheduleReconnect() {
+                if (!shouldReconnect || reconnectInterval) {
+                    return;
+                }
+                setConnectionStatus(false);
+                reconnectInterval = setInterval(() => {
+                    console.log('Mencoba menyambung ulang ke WebSocket...');
+                    initWebSocket();
+                }, 5000);
+            }
+
+            function applyRelaySync(relayName, state) {
+                const toggleId = relayToggleIds[relayName];
+                if (!toggleId) return;
+                const toggle = document.getElementById(toggleId);
+                if (!toggle) return;
+                const shouldCheck = state === 'ON' || state === true || state === 1;
+                if (toggle.checked !== shouldCheck) {
+                    toggle.checked = shouldCheck;
+                }
+            }
+
+            function syncRelayTogglesFromData(data) {
+                ['relay1', 'relay2', 'relay3', 'relay4'].forEach((key) => {
+                    if (typeof data[key] === 'undefined') return;
+                    applyRelaySync(key, data[key]);
+                });
+            }
+
+            function updateDashboardFromWS(data) {
+                if (!data || typeof data !== 'object') return;
+                lastRealtimeData = data;
+
+                if (typeof data.suhu === 'number' && !Number.isNaN(data.suhu)) {
+                    const tempEl = document.getElementById('system-temp');
+                    if (tempEl) {
+                        tempEl.textContent = `${data.suhu.toFixed(1)}°C`;
+                        tempEl.className = `text-5xl font-bold mt-4 text-center ${data.suhu > 38 ? 'text-red-500' : 'text-yellow-500'}`;
+                    }
+                }
+
+                const timeEl = document.getElementById('system-time');
+                if (timeEl) {
+                    timeEl.textContent = `Diperbarui pada ${new Date().toTimeString().split(' ')[0]}`;
+                }
+
+                if (data.pzem1 && typeof data.pzem1 === 'object') {
+                    const pzem = data.pzem1;
+                    const pzemContent = document.getElementById('pzem-static-content');
+                    if (pzemContent) {
+                        pzemContent.innerHTML = `
+                            <div class="text-sm"><span class="font-semibold">Arus:</span> <span class="float-right">${safeNumber(pzem.current, 2)} A</span></div>
+                            <div class="text-sm"><span class="font-semibold">Tegangan:</span> <span class="float-right">${safeNumber(pzem.voltage, 1)} V</span></div>
+                            <div class="text-sm"><span class="font-semibold">Daya:</span> <span class="float-right">${safeNumber(pzem.power, 2)} W</span></div>
+                            <div class="text-sm"><span class="font-semibold">Energi:</span> <span class="float-right">${safeNumber(pzem.energy, 3)} kWh</span></div>
+                            <div class="text-sm"><span class="font-semibold">Faktor Daya:</span> <span class="float-right">${safeNumber(pzem.pf, 2)}</span></div>
+                        `;
+                    }
+
+                    if (typeof pzem.pf === 'number' && !Number.isNaN(pzem.pf)) {
+                        const pfValueEl = document.getElementById('pf-value');
+                        const pfStatusEl = document.getElementById('pf-status');
+                        if (pfValueEl && pfStatusEl) {
+                            pfValueEl.textContent = pzem.pf.toFixed(2);
+                            if (pzem.pf > 0.95) {
+                                pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-green-600';
+                                pfStatusEl.textContent = 'Kualitas daya sangat baik';
+                            } else if (pzem.pf > 0.85) {
+                                pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-yellow-500';
+                                pfStatusEl.textContent = 'Kualitas daya baik';
+                            } else {
+                                pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-red-500';
+                                pfStatusEl.textContent = 'Perlu perbaikan';
+                            }
+                        }
+                    }
+                }
+
+                syncRelayTogglesFromData(data);
+            }
+
+            function safeNumber(value, digits) {
+                const num = Number(value);
+                return Number.isFinite(num) ? num.toFixed(digits) : '-';
+            }
+
+            function updateChartsFromWS(data) {
+                if (!charts.dailyUsageChart || !data || !data.pzem1) return;
+                const chart = charts.dailyUsageChart;
+                const lastIndex = chart.data.datasets[0].data.length - 1;
+                if (lastIndex < 0) return;
+                const power = Number(data.pzem1.power);
+                if (Number.isFinite(power)) {
+                    chart.data.datasets[0].data[lastIndex] = power / 100;
+                    chart.update('none');
+                }
+            }
+
+            function sendRelayCommand(relay, state) {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    console.error('WebSocket tidak terhubung. Tidak bisa mengirim perintah.');
+                    return;
+                }
+                const message = JSON.stringify({
+                    type: 'control_relay',
+                    relay,
+                    state
+                });
+                ws.send(message);
+                console.log(`Perintah ${state} dikirim untuk ${relay}`);
+            }
+
+            function setupRelayToggles() {
+                Object.entries(relayToggleIds).forEach(([relay, elementId]) => {
+                    const toggle = document.getElementById(elementId);
+                    if (!toggle || toggle.__wired) return;
+                    toggle.__wired = true;
+                    toggle.addEventListener('change', (event) => {
+                        sendRelayCommand(relay, event.target.checked ? 'ON' : 'OFF');
+                    });
+                });
+            }
+
+            // --- MODAL FUNCTIONS ---
+            function openModal(modal, content) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { 
+                    modal.style.opacity = '1';
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            };
+            function closeModal(modal, content) {
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                modal.style.opacity = '0';
+                setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            };
+
+            // --- AUTH PAGE NAVIGATION ---
+            function showAuthPage(pageId) {
+                authSections.forEach(section => {
+                    section.classList.remove('active');
+                });
+                const pageToShow = document.getElementById(pageId);
+                if (pageToShow) {
+                    pageToShow.classList.add('active');
+                }
+            }
+
+            // --- DASHBOARD PAGE NAVIGATION ---
+            function showPage(pageId) {
+                const pages = dashboardPage.querySelectorAll('.page-content');
+                const navLinks = dashboardPage.querySelectorAll('.nav-link');
+                
+                pages.forEach(p => p.classList.toggle('active', p.id === `page-${pageId}`));
+                navLinks.forEach(l => l.classList.toggle('active', l.hash === `#${pageId}`));
+                
+                if (pageId === 'dasbor' && !chartsInitialized.dasbor) initDasborCharts();
+                else if (pageId === 'analitik' && !chartsInitialized.analitik) initAnalitikCharts();
+            }
+             function handleNavClick(e) {
+                const l = e.target.closest('.nav-link');
+                if (l) {
+                    e.preventDefault();
+                    const pageId = l.hash.substring(1);
+                    showPage(pageId);
+                    window.location.hash = pageId;
+                    if (window.innerWidth < 768) document.getElementById('sidebar').classList.add('-translate-x-full');
+                }
+            }
+            
+            // All dashboard helper functions must be here
+            function updateDashboardCards() { const data = monthlyData[currentMonthIndex]; document.getElementById('total-kwh-value').innerHTML = `${data.kwh.toFixed(1)} <span class="text-2xl text-gray-500">kWh</span>`; document.getElementById('biaya-energi-value').textContent = `Rp ${data.biaya.toLocaleString('id-ID')}`; document.getElementById('month-display').textContent = data.month; }
+            function updatePzemSlider() { if (lastRealtimeData) return; const pzemData = monthlyData[currentMonthIndex].pzem[0]; document.getElementById('pzem-static-content').innerHTML = `<div class="text-sm"><span class="font-semibold">Arus:</span> <span class="float-right">${pzemData.arus.toFixed(1)} A</span></div><div class="text-sm"><span class="font-semibold">Tegangan:</span> <span class="float-right">${pzemData.tegangan.toFixed(0)} V</span></div><div class="text-sm"><span class="font-semibold">Daya:</span> <span class="float-right">${pzemData.daya.toFixed(0)} W</span></div>`; }
+            function updatePfSlider() { const data = monthlyData[currentPfMonthIndex]; const pfValueEl = document.getElementById('pf-value'); const pfStatusEl = document.getElementById('pf-status'); document.getElementById('pf-month-display').textContent = data.month.split(' ')[0]; pfValueEl.textContent = data.pf.toFixed(2); if (data.pf > 0.95) { pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-green-600'; pfStatusEl.textContent = 'Kualitas daya sangat baik'; } else if (data.pf > 0.85) { pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-yellow-500'; pfStatusEl.textContent = 'Kualitas daya baik'; } else { pfValueEl.className = 'text-5xl font-bold mt-4 text-center text-red-500'; pfStatusEl.textContent = 'Perlu perbaikan'; } }
+            function updateWeeklyGraph() { charts.dailyUsageChart.data.datasets[0].data = weeklyData[currentGraphMonthIndex][currentGraphWeekIndex]; charts.dailyUsageChart.update(); document.getElementById('graph-week-display').textContent = `Minggu ${currentGraphWeekIndex + 1} - ${monthlyData[currentGraphMonthIndex].month.split(' ')[0]}`; }
+            function initDasborCharts() { charts.dailyUsageChart = new Chart(document.getElementById('dailyUsageChart'), { type:'bar', data:{ labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'], datasets:[{ label:'kWh', data: [], backgroundColor:c=>{const{chart}=c;const{ctx,chartArea}=chart;if(!chartArea){return 'rgba(74,222,128,0.8)';}const g=ctx.createLinearGradient(0,chartArea.bottom,0,chartArea.top);g.addColorStop(0,'rgba(59,130,246,0.8)');g.addColorStop(1,'rgba(74,222,128,0.8)');return g;}, borderRadius:8, barPercentage: 0.6 }] }, options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{drawBorder:false},ticks:{callback:v=>v+' kWh'}},x:{grid:{display:true}}}} }); document.getElementById('prev-month-btn').addEventListener('click', () => { if (currentMonthIndex > 0) { currentMonthIndex--; updateDashboardCards(); updatePzemSlider(); } }); document.getElementById('next-month-btn').addEventListener('click', () => { if (currentMonthIndex < monthlyData.length - 1) { currentMonthIndex++; updateDashboardCards(); updatePzemSlider(); } }); document.getElementById('pf-prev-btn').addEventListener('click', () => { if (currentPfMonthIndex > 0) { currentPfMonthIndex--; updatePfSlider(); } }); document.getElementById('pf-next-btn').addEventListener('click', () => { if (currentPfMonthIndex < monthlyData.length - 1) { currentPfMonthIndex++; updatePfSlider(); } }); document.getElementById('graph-prev-week-btn').addEventListener('click', () => { if (currentGraphWeekIndex > 0) { currentGraphWeekIndex--; updateWeeklyGraph(); } }); document.getElementById('graph-next-week-btn').addEventListener('click', () => { if (currentGraphWeekIndex < 3) { currentGraphWeekIndex++; updateWeeklyGraph(); } }); document.getElementById('graph-prev-month-btn').addEventListener('click', () => { if (currentGraphMonthIndex > 0) { currentGraphMonthIndex--; currentGraphWeekIndex = 0; updateWeeklyGraph(); } }); document.getElementById('graph-next-month-btn').addEventListener('click', () => { if (currentGraphMonthIndex < weeklyData.length - 1) { currentGraphMonthIndex++; currentGraphWeekIndex = 0; updateWeeklyGraph(); } }); chartsInitialized.dasbor = true; updateDashboardCards(); updatePzemSlider(); updatePfSlider(); updateWeeklyGraph(); }
+            function initAnalitikCharts() { Chart.register(Chart.controllers.matrix); charts.monthlyCostChart = new Chart(document.getElementById('monthlyCostChart'), { type: 'bar', data: { labels: monthlyData.map(d => d.month.split(' ')[0]), datasets: [{ label: 'Biaya (Rp)', data: monthlyData.map(d => d.biaya), backgroundColor: 'rgba(13, 148, 136, 0.7)', borderRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => 'Rp ' + (v/1000) + 'k' } } } } }); const heatmapData = []; const days = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']; const hours = Array.from({length:24},(_,i)=>`${i.toString().padStart(2,'0')}:00`); days.forEach((day,dayIndex)=>{hours.forEach((hour,hourIndex)=>{let value=Math.random()*0.5;if(hourIndex>17&&hourIndex<22)value+=Math.random()*0.8;if(dayIndex===0||dayIndex===6)value+=Math.random()*0.4;heatmapData.push({x:day,y:hour,v:value});});}); charts.heatmapChart = new Chart(document.getElementById('heatmapChart'),{type:'matrix',data:{datasets:[{label:'Konsumsi (kWh)',data:heatmapData,backgroundColor:c=>`rgba(13, 148, 136, ${(c.dataset.data[c.dataIndex].v-0.1)/1.5})`,borderColor:'rgba(255, 255, 255, 0.5)',borderWidth:1,width:c=>(c.chart.chartArea||{}).width/days.length-1,height:c=>(c.chart.chartArea||{}).height/hours.length-1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:false,tooltip:{callbacks:{title:()=>'',label:c=>{const i=c.dataset.data[c.dataIndex];return[`Hari: ${i.x}`,`Jam: ${i.y}`,`Konsumsi: ${i.v.toFixed(2)} kWh`];}}}},scales:{x:{type:'category',labels:days,grid:{display:false}},y:{type:'category',labels:hours,offset:true,grid:{display:false}}}}}); chartsInitialized.analitik = true; }
+            
+            // --- DASHBOARD CONTENT POPULATION ---
+            function populateDashboardPages() {
+                document.getElementById('page-dasbor').innerHTML = `
+                    <header class="hidden md:flex flex-wrap justify-between items-center mb-8 gap-4"><div><h2 class="text-3xl font-bold">Dasbor Utama</h2><p class="text-gray-500">Ringkasan penggunaan energi Anda secara real-time.</p></div><div id="connection-status" class="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm"><span class="relative flex h-3 w-3"><span class="relative inline-flex rounded-full h-3 w-3 bg-gray-400"></span></span><span class="font-semibold text-gray-500">Menghubungkan...</span></div></header>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+                        <div class="card"><h3 class="font-semibold text-gray-500">Riwayat Penggunaan</h3><p class="text-4xl font-bold mt-2" id="total-kwh-value">0 <span class="text-2xl text-gray-500">kWh</span></p><p class="text-lg text-gray-600" id="biaya-energi-value">Rp 0</p><div class="flex items-center justify-between mt-2"><button id="prev-month-btn" class="p-1 rounded-full hover:bg-gray-100">&lt;</button><span id="month-display" class="text-sm font-semibold text-center"></span><button id="next-month-btn" class="p-1 rounded-full hover:bg-gray-100">&gt;</button></div></div>
+                        <div class="card"><h3 class="font-semibold text-gray-500 mb-3">Arus Lantai 1 (PZEM)</h3><div id="pzem-static-content" class="space-y-3"></div></div>
+                        <div class="card"><div class="flex items-center justify-between"><h3 class="font-semibold text-gray-500">Faktor Daya (PF)</h3><span id="pf-month-display" class="text-sm font-semibold"></span></div><p id="pf-value" class="text-5xl font-bold mt-4 text-center text-green-600">0.00</p><p id="pf-status" class="text-center text-gray-500 mt-2"></p><div class="flex items-center justify-center mt-2"><button id="pf-prev-btn" class="p-1 rounded-full hover:bg-gray-100">&lt;</button><span class="text-xs mx-2">Geser Bulan</span><button id="pf-next-btn" class="p-1 rounded-full hover:bg-gray-100">&gt;</button></div></div>
+                        <div class="card"><h3 class="font-semibold text-gray-500">Suhu Sistem</h3><p id="system-temp" class="text-5xl font-bold mt-4 text-center text-yellow-500">0°C</p><p id="system-time" class="text-center text-gray-500 mt-2">Memuat...</p></div>
+                    </div>
+                    <div class="card"><div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2"><h3 class="font-bold text-lg">Grafik Penggunaan Mingguan</h3><div class="flex items-center space-x-2"><button id="graph-prev-month-btn" class="px-2 py-1 text-xs rounded-md hover:bg-gray-100">&lt;&lt;</button><button id="graph-prev-week-btn" class="px-2 py-1 text-xs rounded-md hover:bg-gray-100">&lt;</button><span id="graph-week-display" class="text-sm font-semibold text-center w-28"></span><button id="graph-next-week-btn" class="px-2 py-1 text-xs rounded-md hover:bg-gray-100">&gt;</button><button id="graph-next-month-btn" class="px-2 py-1 text-xs rounded-md hover:bg-gray-100">&gt;&gt;</button></div></div><div class="h-80"><canvas id="dailyUsageChart"></canvas></div></div>`;
+                document.getElementById('page-analitik').innerHTML = `<header class="mb-8"><div><h2 class="text-3xl font-bold">Analitik & Prediksi</h2><p class="text-gray-500">Analisis mendalam dan prediksi biaya untuk masa depan.</p></div></header><div class="grid grid-cols-1 gap-6"><div class="card"><h3 class="font-bold text-lg mb-4">Biaya Listrik per Bulan (1 Tahun)</h3><div class="h-80"><canvas id="monthlyCostChart"></canvas></div></div><div class="card"><h3 class="font-bold text-lg mb-4">Heatmap Konsumsi Mingguan (kWh)</h3><p class="text-sm text-gray-500 mb-4">Visualisasikan jam-jam sibuk penggunaan energi Anda.</p><div class="h-96"><canvas id="heatmapChart"></canvas></div></div></div>`;
+                document.getElementById('page-kontrol').innerHTML = `<header class="mb-8"><div><h2 class="text-3xl font-bold">Pusat Kontrol</h2><p class="text-gray-500">Kelola semua perangkat dari satu tempat.</p></div></header><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="card"><h3 class="font-bold text-lg mb-4">Ruang 1</h3><div class="space-y-4"><div class="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"><span>Beban 1</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-relay1" class="sr-only peer toggle-checkbox"><div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-teal-600 toggle-bg"><div class="absolute top-0.5 left-[2px] bg-white border rounded-full h-5 w-5 transition-transform duration-300 ease-in-out dot"></div></div></label></div><div class="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"><span>Beban 2</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-relay2" class="sr-only peer toggle-checkbox"><div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-teal-600 toggle-bg"><div class="absolute top-0.5 left-[2px] bg-white border rounded-full h-5 w-5 transition-transform duration-300 ease-in-out dot"></div></div></label></div></div></div><div class="card"><h3 class="font-bold text-lg mb-4">Ruang 2</h3><div class="space-y-4"><div class="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"><span>Beban 3</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-relay3" class="sr-only peer toggle-checkbox"><div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-teal-600 toggle-bg"><div class="absolute top-0.5 left-[2px] bg-white border rounded-full h-5 w-5 transition-transform duration-300 ease-in-out dot"></div></div></label></div><div class="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg"><span>Beban 4</span><label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-relay4" class="sr-only peer toggle-checkbox"><div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-teal-600 toggle-bg"><div class="absolute top-0.5 left-[2px] bg-white border rounded-full h-5 w-5 transition-transform duration-300 ease-in-out dot"></div></div></label></div></div></div></div>`;
+                document.getElementById('page-riwayat').innerHTML = `<header class="mb-8"><div><h2 class="text-3xl font-bold">Riwayat & Laporan</h2><p class="text-gray-500">Tinjau semua aktivitas sistem.</p></div></header><div class="card"><div class="overflow-x-auto"><table class="w-full text-sm text-left text-gray-500"><thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr><th class="px-6 py-3">Waktu</th><th class="px-6 py-3">Perangkat</th><th class="px-6 py-3">Aktivitas</th><th class="px-6 py-3">Pemicu</th></tr></thead><tbody><tr class="bg-white border-b hover:bg-gray-50"><td class="px-6 py-4">15/07/2025 22:15:03</td><td class="px-6 py-4 font-medium text-gray-900">AC Ruang Tamu</td><td class="px-6 py-4">Dinyalakan</td><td class="px-6 py-4">Manual</td></tr><tr class="bg-gray-50 border-b hover:bg-gray-100"><td class="px-6 py-4">15/07/2025 21:00:10</td><td class="px-6 py-4 font-medium text-gray-900">Sistem</td><td class="px-6 py-4 text-yellow-600">Peringatan: Tegangan rendah</td><td class="px-6 py-4">Otomatis</td></tr></tbody></table></div></div>`;
+                document.getElementById('page-panduan').innerHTML = `<header class="mb-8"><h2 class="text-3xl font-bold">Panduan Penggunaan Website</h2><p class="text-gray-500">Pelajari cara menggunakan setiap fitur di Energius.</p></header><div class="space-y-6"><div class="card"><h3 class="font-bold text-lg mb-2 text-teal-700">1. Halaman Dasbor</h3><p class="text-gray-600">Halaman utama untuk melihat ringkasan data terpenting secara real-time:</p><ul class="list-disc list-inside mt-2 space-y-1 text-gray-600"><li><strong>Riwayat Penggunaan:</strong> Total konsumsi (kWh) dan perkiraan biaya bulan ini.</li><li><strong>Arus Lantai (PZEM):</strong> Data kelistrikan seperti Arus, Tegangan, dan Daya.</li><li><strong>Faktor Daya (PF):</strong> Indikator kualitas daya listrik. Semakin mendekati 1.00, semakin baik.</li><li><strong>Grafik Mingguan:</strong> Visualisasi penggunaan energi harian dalam seminggu.</li></ul></div><div class="card"><h3 class="font-bold text-lg mb-2 text-teal-700">2. Halaman Analitik</h3><p class="text-gray-600">Menyediakan analisis data mendalam untuk memahami pola konsumsi:</p><ul class="list-disc list-inside mt-2 space-y-1 text-gray-600"><li><strong>Grafik Biaya Bulanan:</strong> Perbandingan biaya listrik dari bulan ke bulan.</li><li><strong>Heatmap Konsumsi:</strong> Peta panas yang menunjukkan jam dan hari paling sibuk.</li></ul></div><div class="card"><h3 class="font-bold text-lg mb-2 text-teal-700">3. Halaman Kontrol & Riwayat</h3><p class="text-gray-600">Gunakan halaman <strong>Kontrol</strong> untuk menyalakan atau mematikan perangkat. Gunakan halaman <strong>Riwayat</strong> untuk mencatat semua aktivitas yang terjadi pada sistem.</p></div></div>`;
+                document.getElementById('page-tentang').innerHTML = `<header class="mb-8"><h2 class="text-3xl font-bold">Tentang Energius</h2><p class="text-gray-500">Mengenal lebih dekat tim dan visi kami.</p></header><div class="card"><p class="text-gray-600 leading-relaxed"><strong>Energius</strong> adalah sistem pemantauan energi cerdas yang dirancang untuk memberikan kendali penuh atas penggunaan listrik. Visi kami adalah mendorong efisiensi energi melalui teknologi yang mudah diakses, membantu pengguna mengurangi biaya dan jejak karbon.</p><div class="mt-8 pt-6 border-t border-gray-200"><h3 class="text-xl font-bold text-center mb-4">Hubungi Kami</h3><div class="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8"><a href="https://www.instagram.com/energius.pkm?igsh=MTVuaHQ2dmwwdWwxOA==" target="_blank" class="flex items-center space-x-2 text-gray-600 hover:text-blue-600"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.024.06 1.378.06 3.808s-.012 2.784-.06 3.808c-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.024.048-1.378.06-3.808.06s-2.784-.012-3.808-.06c-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.048-1.024-.06-1.378-.06-3.808s.012-2.784.06-3.808c.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 016.08 2.525c.636-.247 1.363.416 2.427-.465C9.53 2.013 9.884 2 12.315 2z" clip-rule="evenodd" /><path d="M12 6.865a5.135 5.135 0 100 10.27 5.135 5.135 0 000-10.27zm-3.135 5.135a3.135 3.135 0 116.27 0 3.135 3.135 0 01-6.27 0z" /><path d="M16.862 6.363a1.213 1.213 0 100-2.425 1.213 1.213 0 000 2.425z" /></svg><span class="font-semibold">@energius.pkm</span></a><a href="mailto:energijenius@gmail.com" class="flex items-center space-x-2 text-gray-600 hover:text-blue-600"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg><span class="font-semibold">energijenius@gmail.com</span></a></div></div></div>`;
+            }
+
+            // --- MAIN LOGIC FOR LOGIN/DASHBOARD TRANSITION ---
+            function populateAndShowDashboard() {
+                if (dashboardPage.innerHTML.trim() === '') {
+                    dashboardPage.innerHTML = `
+                    <div class="relative min-h-screen md:flex">
+                        <div class="md:hidden flex justify-start items-center p-4 bg-white/80 backdrop-blur-sm shadow-md space-x-4">
+                            <button id="mobile-menu-button" class="text-gray-600 focus:outline-none"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-lineJoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg></button>
+                            <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to green-500">Energius</h1>
+                        </div>
+                        <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white/80 backdrop-blur-sm shadow-lg flex flex-col flex-shrink-0 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out">
+                             <div class="p-6 text-center">
+                                <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500">Energius</h1>
+                                <p class="text-sm text-gray-500">Smart Energy</p>
+                            </div>
+                            <nav id="sidebar-nav" class="flex-1 px-4 py-2 space-y-2">
+                                <a href="#dasbor" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg active"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>Dasbor</a>
+                                <a href="#analitik" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>Analitik</a>
+                                <a href="#kontrol" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>Kontrol</a>
+                                <a href="#riwayat" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Riwayat</a>
+                                <a href="#panduan" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6.253v11.494m-9-5.747h18M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"></path></svg>Panduan</a>
+                                <a href="#tentang" class="nav-link flex items-center px-4 py-3 text-gray-600 hover:bg-gray-100 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Tentang</a>
+                            </nav>
+                            <div class="p-4 mt-auto">
+                                <button id="logout-btn" class="w-full flex items-center justify-center bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                                    Logout
+                                </button>
+                            </div>
+                        </aside>
+                        <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
+                            <section id="page-dasbor" class="page-content"></section>
+                            <section id="page-analitik" class="page-content"></section>
+                            <section id="page-kontrol" class="page-content"></section>
+                            <section id="page-riwayat" class="page-content"></section>
+                            <section id="page-panduan" class="page-content"></section>
+                            <section id="page-tentang" class="page-content"></section>
+                        </main>
+                    </div>`;
+
+                    document.getElementById('logout-btn').addEventListener('click', () => {
+                        shouldReconnect = false;
+                        if (reconnectInterval) {
+                            clearInterval(reconnectInterval);
+                            reconnectInterval = null;
+                        }
+                        if (ws) {
+                            try {
+                                ws.close();
+                            } catch (err) {
+                                console.warn('Gagal menutup WebSocket saat logout:', err);
+                            }
+                            ws = null;
+                        }
+                        lastRealtimeData = null;
+                        dashboardPage.classList.add('hidden');
+                        dashboardPage.innerHTML = '';
+                        authContainer.classList.remove('hidden');
+                        showAuthPage('login-page');
+                        document.getElementById('username').value = '';
+                        document.getElementById('password').value = '';
+                        window.location.hash = '';
+                    });
+
+                    document.getElementById('sidebar-nav').addEventListener('click', handleNavClick);
+                    document.getElementById('mobile-menu-button').addEventListener('click', () => {
+                         document.getElementById('sidebar').classList.toggle('-translate-x-full');
+                    });
+                }
+                
+                populateDashboardPages();
+                setupRelayToggles();
+                showPage(window.location.hash.substring(1) || 'dasbor');
+                shouldReconnect = true;
+                initWebSocket();
+                if (lastRealtimeData) {
+                    updateDashboardFromWS(lastRealtimeData);
+                    updateChartsFromWS(lastRealtimeData);
+                    syncRelayTogglesFromData(lastRealtimeData);
+                }
+            }
+            
+            // --- EVENT LISTENERS ---
+            signupLink.addEventListener('click', (e) => { e.preventDefault(); showAuthPage('signup-page'); });
+            forgotPasswordLink.addEventListener('click', (e) => { e.preventDefault(); showAuthPage('forgot-password-page'); });
+            backToLoginLinks.forEach(link => { link.addEventListener('click', (e) => { e.preventDefault(); showAuthPage('login-page'); }); });
+            panduanLoginBtn.addEventListener('click', () => openModal(panduanModal, panduanModalContent));
+            hubungiKamiBtn.addEventListener('click', () => openModal(hubungiKamiModal, hubungiKamiModalContent));
+            closePanduanBtn.addEventListener('click', () => closeModal(panduanModal, panduanModalContent));
+            closeHubungiKamiBtn.addEventListener('click', () => closeModal(hubungiKamiModal, hubungiKamiModalContent));
+            window.addEventListener('click', (e) => {
+                if (e.target === panduanModal) closeModal(panduanModal, panduanModalContent);
+                if (e.target === hubungiKamiModal) closeModal(hubungiKamiModal, hubungiKamiModalContent);
+            });
+            
+            loginForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                if (username === 'eiz' && password === 'valleiz123') {
+                    authContainer.classList.add('hidden');
+                    dashboardPage.classList.remove('hidden');
+                    populateAndShowDashboard();
+                } else {
+                    errorMessage.classList.remove('hidden');
+                    setTimeout(() => { errorMessage.classList.add('hidden'); }, 4000);
+                }
+            });
+
+            // --- BACKGROUND ANIMATION ---
+            const canvas = document.getElementById('background-animation');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            let particlesArray;
+            class Particle { constructor(x, y, dX, dY, s, c) { this.x = x; this.y = y; this.directionX = dX; this.directionY = dY; this.size = s; this.color = c; } draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false); ctx.fillStyle = this.color; ctx.fill(); } update() { if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; } if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; } this.x += this.directionX; this.y += this.directionY; this.draw(); } }
+            function initBg() { particlesArray = []; let num = (canvas.height * canvas.width) / 9000; for (let i = 0; i < num; i++) { let s = (Math.random() * 2) + 1; let x = (Math.random() * ((innerWidth - s * 2) - (s * 2)) + s * 2); let y = (Math.random() * ((innerHeight - s * 2) - (s * 2)) + s * 2); let dX = (Math.random() * .4) - .2; let dY = (Math.random() * .4) - .2; let c = 'rgba(13,148,136,0.5)'; particlesArray.push(new Particle(x, y, dX, dY, s, c)); } }
+            function animateBg() { requestAnimationFrame(animateBg); ctx.clearRect(0, 0, innerWidth, innerHeight); for (let i = 0; i < particlesArray.length; i++) { particlesArray[i].update(); } connectBg(); }
+            function connectBg() { let opacity = 1; for (let a = 0; a < particlesArray.length; a++) { for (let b = a; b < particlesArray.length; b++) { let dist = ((particlesArray[a].x - particlesArray[b].x) * (particlesArray[a].x - particlesArray[b].x)) + ((particlesArray[a].y - particlesArray[b].y) * (particlesArray[a].y - particlesArray[b].y)); if (dist < (canvas.width / 7) * (canvas.height / 7)) { opacity = 1 - (dist / 20000); ctx.strokeStyle = 'rgba(59,130,246,' + opacity + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke(); } } } }
+            window.addEventListener('resize', () => { canvas.width = innerWidth; canvas.height = innerHeight; initBg(); });
+            
+            initBg();
+            animateBg();
+        });
+    </script>
+</body>
+</html>
